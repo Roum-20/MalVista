@@ -1,0 +1,6 @@
+streamlit
+pefile
+vt-py
+fpdf
+python-magic
+plotly
