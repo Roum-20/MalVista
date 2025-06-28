@@ -1,6 +1,6 @@
 
-## MalScanX
-MalScanX is a Streamlit-based interactive malware analysis framework.
+## MalVista
+Malvista is a Streamlit-based interactive malware analysis framework.
 It provides static analysis, VirusTotal enrichment, MITRE ATT&CK mapping,
 IOC export, and risk scoring — all in one dashboard.
 
