@@ -36,7 +36,6 @@ IOC export, and risk scoring — all in one dashboard.
 
 ## 📌 Notes:
 - VirusTotal API key is required for querying VT. Get yours at https://www.virustotal.com.
-- Use the included safe sample files in `samples/` for testing.
 - Always run malware analysis in a secure, isolated environment.
 
 ## ⚠️Legal Notice:
