@@ -4,7 +4,7 @@ from utils import file_utils, scoring, export_iocs
 import os
 
 st.set_page_config(page_title="MalScanX", layout="wide")
-st.title("🛡️ MalVista - Malware Analysis Dashboard")
+st.title("🧪 MalVista - Malware Analysis Dashboard")
 
 uploaded_file = st.file_uploader("Upload a PE file (.exe, .dll)", type=["exe", "dll"])
 api_key = st.text_input("VirusTotal API Key (optional)", type="password")
