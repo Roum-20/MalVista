@@ -22,7 +22,7 @@ IOC export, and risk scoring — all in one dashboard.
 ```bash
    pip install -r requirements.txt
    ```
-. Run the app:
+2. Run the app:
 ```bash
    streamlit run app.py
    ```
