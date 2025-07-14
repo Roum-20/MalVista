@@ -1,9 +1,16 @@
+import os
 import streamlit as st
 from analyzer import static_analysis, vt_enrichment, mitre_mapping
-from utils import file_utils, scoring, export_iocs
-import os
+from utils import file_utils, scoring, export_iocs, auth
 
 st.set_page_config(page_title="MalScanX", layout="wide")
+
+# 🔐 Login Panel
+if not auth.login():
+    st.stop()
+
+auth.logout()  # Show logout button
+
 st.title("🧪 MalVista - Malware Analysis Dashboard")
 
 uploaded_file = st.file_uploader("Upload a PE file (.exe, .dll)", type=["exe", "dll"])
@@ -13,14 +20,17 @@ if uploaded_file:
     st.success(f"Uploaded: {uploaded_file.name}")
     file_path = file_utils.save_uploaded_file(uploaded_file)
 
+    # Static Analysis
     hashes = static_analysis.get_hashes(file_path)
     strings = static_analysis.extract_strings(file_path)
     imports = static_analysis.get_imports(file_path)
     mitre_hits = mitre_mapping.map_to_mitre(strings)
 
+    # Display Hashes
     st.subheader("📄 File Hashes")
     st.json(hashes)
 
+    # PE Imports
     st.subheader("🔍 PE Imports")
     for entry in imports:
         if isinstance(entry, tuple):
@@ -29,6 +39,7 @@ if uploaded_file:
         else:
             st.warning(f"Import parsing error: {entry}")
 
+    # MITRE Mapping
     st.subheader("🎯 MITRE ATT&CK Mapping")
     if mitre_hits:
         for tid, desc, tactic in mitre_hits:
@@ -36,19 +47,21 @@ if uploaded_file:
     else:
         st.info("No MITRE techniques detected from strings.")
 
+    # VirusTotal Integration
     vt_data = None
     if api_key:
         with st.spinner("Querying VirusTotal..."):
             vt_data = vt_enrichment.enrich_virustotal(file_path, api_key)
-
             if vt_data:
                 st.subheader("🦠 VirusTotal Results")
                 st.json(vt_data)
 
+    # Risk Scoring
     st.subheader("⚠️ Risk Assessment")
     risk = scoring.score_sample(imports, strings, vt_data)
     st.write(risk)
 
+    # Export IOCs
     st.subheader("📤 Export IOCs")
     if st.button("Export to CSV & PDF"):
         csv_path = export_iocs.export_iocs_to_csv(file_path, hashes, strings, vt_data, mitre_hits)
@@ -60,5 +73,3 @@ if uploaded_file:
 
         with open(pdf_path, "rb") as f:
             st.download_button("Download PDF", f.read(), file_name=os.path.basename(pdf_path))
-
-      
