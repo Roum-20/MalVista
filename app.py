@@ -60,3 +60,5 @@ if uploaded_file:
 
         with open(pdf_path, "rb") as f:
             st.download_button("Download PDF", f.read(), file_name=os.path.basename(pdf_path))
+
+      
