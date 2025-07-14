@@ -5,11 +5,10 @@ from utils import file_utils, scoring, export_iocs, auth
 
 st.set_page_config(page_title="MalScanX", layout="wide")
 
-# 🔐 Login Panel
 if not auth.login():
     st.stop()
 
-auth.logout()  # Show logout button
+auth.logout()  
 
 st.title("🧪 MalVista - Malware Analysis Dashboard")
 
