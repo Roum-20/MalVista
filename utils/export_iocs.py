@@ -1,6 +1,28 @@
-from fpdf import FPDF
+import csv
 import os
+from fpdf import FPDF
 import textwrap
+
+
+def export_iocs_to_csv(file_path, hashes, strings, vt_data, mitre_hits):
+    output_path = f"{os.path.splitext(file_path)[0]}_report.csv"
+    with open(output_path, "w", newline="", encoding="utf-8") as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow(["Section", "Key", "Value"])
+
+        for k, v in hashes.items():
+            writer.writerow(["Hash", k, v])
+
+        if vt_data:
+            for k, v in vt_data.items():
+                writer.writerow(["VirusTotal", k, str(v)])
+
+        if mitre_hits:
+            for tid, desc, tactic in mitre_hits:
+                writer.writerow(["MITRE", f"{tid} ({tactic})", desc])
+
+    return output_path
+
 
 def export_iocs_to_pdf(file_path, hashes, strings, vt_data, mitre_hits):
     pdf = FPDF()
