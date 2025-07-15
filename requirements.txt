@@ -1,6 +1,6 @@
 streamlit
 pefile
 vt-py
-fpdf
+fpdf2
 python-magic
 plotly
