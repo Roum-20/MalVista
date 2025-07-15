@@ -5,13 +5,18 @@ from utils import file_utils, scoring, export_iocs, auth
 
 st.set_page_config(page_title="MalScanX", layout="wide")
 
-if not auth.login():
+# 🔐 Login System
+if not auth.is_authenticated():
+    auth.login()
     st.stop()
 
-auth.logout()  
+# Optional logout button
+auth.logout()
 
+# Main title after login
 st.title("🧪 MalVista - Malware Analysis Dashboard")
 
+# File Upload
 uploaded_file = st.file_uploader("Upload a PE file (.exe, .dll)", type=["exe", "dll"])
 api_key = st.text_input("VirusTotal API Key (optional)", type="password")
 
@@ -25,7 +30,7 @@ if uploaded_file:
     imports = static_analysis.get_imports(file_path)
     mitre_hits = mitre_mapping.map_to_mitre(strings)
 
-    # Display Hashes
+    # File Hashes
     st.subheader("📄 File Hashes")
     st.json(hashes)
 
@@ -38,7 +43,7 @@ if uploaded_file:
         else:
             st.warning(f"Import parsing error: {entry}")
 
-    # MITRE Mapping
+    # MITRE ATT&CK Mapping
     st.subheader("🎯 MITRE ATT&CK Mapping")
     if mitre_hits:
         for tid, desc, tactic in mitre_hits:
@@ -46,7 +51,7 @@ if uploaded_file:
     else:
         st.info("No MITRE techniques detected from strings.")
 
-    # VirusTotal Integration
+    # VirusTotal
     vt_data = None
     if api_key:
         with st.spinner("Querying VirusTotal..."):
@@ -60,7 +65,7 @@ if uploaded_file:
     risk = scoring.score_sample(imports, strings, vt_data)
     st.write(risk)
 
-    # Export IOCs
+    # Export
     st.subheader("📤 Export IOCs")
     if st.button("Export to CSV & PDF"):
         csv_path = export_iocs.export_iocs_to_csv(file_path, hashes, strings, vt_data, mitre_hits)
