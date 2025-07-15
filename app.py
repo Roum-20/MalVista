@@ -3,22 +3,21 @@ import streamlit as st
 from analyzer import static_analysis, vt_enrichment, mitre_mapping
 from utils import file_utils, scoring, export_iocs, auth
 
-# Page setup
+# Set Streamlit layout
 st.set_page_config(page_title="MalScanX", layout="wide")
 
-# 🔐 Auth Panel
+# 🔐 Authentication
 if not auth.login():
     st.stop()
 auth.logout()
 
-# Title
+# App Title
 st.title("🧪 MalVista - Malware Analysis Dashboard")
 
-# Upload & VT Key Input
+# File upload
 uploaded_file = st.file_uploader("Upload a PE file (.exe, .dll)", type=["exe", "dll"])
 api_key = st.text_input("VirusTotal API Key (optional)", type="password")
 
-# Proceed if file is uploaded
 if uploaded_file:
     st.success(f"Uploaded: {uploaded_file.name}")
     file_path = file_utils.save_uploaded_file(uploaded_file)
@@ -29,11 +28,11 @@ if uploaded_file:
     imports = static_analysis.get_imports(file_path)
     mitre_hits = mitre_mapping.map_to_mitre(strings)
 
-    # Show Hashes
+    # Display Hashes
     st.subheader("📄 File Hashes")
     st.json(hashes)
 
-    # Show Imports
+    # Display Imports
     st.subheader("🔍 PE Imports")
     for entry in imports:
         if isinstance(entry, tuple):
@@ -42,7 +41,7 @@ if uploaded_file:
         else:
             st.warning(f"Import parsing error: {entry}")
 
-    # MITRE ATT&CK Mapping
+    # MITRE Mapping
     st.subheader("🎯 MITRE ATT&CK Mapping")
     if mitre_hits:
         for tid, desc, tactic in mitre_hits:
@@ -50,7 +49,7 @@ if uploaded_file:
     else:
         st.info("No MITRE techniques detected from strings.")
 
-    # VirusTotal Enrichment
+    # VirusTotal
     vt_data = None
     if api_key:
         with st.spinner("Querying VirusTotal..."):
@@ -59,16 +58,16 @@ if uploaded_file:
                 st.subheader("🦠 VirusTotal Results")
                 st.json(vt_data)
 
-    # Risk Scoring
+    # Risk Score
     st.subheader("⚠️ Risk Assessment")
     risk = scoring.score_sample(imports, strings, vt_data)
     st.write(risk)
 
-    # Export IOCs
+    # Export
     st.subheader("📤 Export IOCs")
     if st.button("Export to CSV & PDF"):
         csv_path = export_iocs.export_iocs_to_csv(file_path, hashes, strings, vt_data, mitre_hits)
-        pdf_path = export_iocs.export_iocs_to_pdf(file_path, hashes, strings, vt_data, mitre_hits, imports=imports)
+        pdf_path = export_iocs.export_iocs_to_pdf(file_path, hashes, strings, vt_data, mitre_hits, imports=imports, risk_score=risk)
         st.success("✅ Exported successfully!")
 
         with open(csv_path, "rb") as f:
