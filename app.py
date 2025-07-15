@@ -3,20 +3,17 @@ import streamlit as st
 from analyzer import static_analysis, vt_enrichment, mitre_mapping
 from utils import file_utils, scoring, export_iocs, auth
 
-st.set_page_config(page_title="MalScanX", layout="wide")
+# Configure Streamlit
+st.set_page_config(page_title="MalVista", layout="wide")
 
-# 🔐 Login System
-if not auth.is_authenticated():
-    auth.login()
+# Login check
+if not auth.login():
     st.stop()
-
-# Optional logout button
 auth.logout()
 
-# Main title after login
 st.title("🧪 MalVista - Malware Analysis Dashboard")
 
-# File Upload
+# File upload
 uploaded_file = st.file_uploader("Upload a PE file (.exe, .dll)", type=["exe", "dll"])
 api_key = st.text_input("VirusTotal API Key (optional)", type="password")
 
@@ -24,17 +21,17 @@ if uploaded_file:
     st.success(f"Uploaded: {uploaded_file.name}")
     file_path = file_utils.save_uploaded_file(uploaded_file)
 
-    # Static Analysis
+    # --- Static Analysis ---
     hashes = static_analysis.get_hashes(file_path)
     strings = static_analysis.extract_strings(file_path)
     imports = static_analysis.get_imports(file_path)
     mitre_hits = mitre_mapping.map_to_mitre(strings)
 
-    # File Hashes
+    # --- File Hashes ---
     st.subheader("📄 File Hashes")
     st.json(hashes)
 
-    # PE Imports
+    # --- PE Imports ---
     st.subheader("🔍 PE Imports")
     for entry in imports:
         if isinstance(entry, tuple):
@@ -43,7 +40,7 @@ if uploaded_file:
         else:
             st.warning(f"Import parsing error: {entry}")
 
-    # MITRE ATT&CK Mapping
+    # --- MITRE ATT&CK ---
     st.subheader("🎯 MITRE ATT&CK Mapping")
     if mitre_hits:
         for tid, desc, tactic in mitre_hits:
@@ -51,29 +48,32 @@ if uploaded_file:
     else:
         st.info("No MITRE techniques detected from strings.")
 
-    # VirusTotal
+    # --- VirusTotal Integration ---
     vt_data = None
     if api_key:
         with st.spinner("Querying VirusTotal..."):
             vt_data = vt_enrichment.enrich_virustotal(file_path, api_key)
             if vt_data:
-                st.subheader("🦠 VirusTotal Results")
+                st.subheader("VirusTotal Results")
                 st.json(vt_data)
 
-    # Risk Scoring
+    # --- Risk Score ---
     st.subheader("⚠️ Risk Assessment")
     risk = scoring.score_sample(imports, strings, vt_data)
     st.write(risk)
 
-    # Export
+    # --- Export ---
     st.subheader("📤 Export IOCs")
     if st.button("Export to CSV & PDF"):
-        csv_path = export_iocs.export_iocs_to_csv(file_path, hashes, strings, vt_data, mitre_hits)
-        pdf_path = export_iocs.export_iocs_to_pdf(file_path, hashes, strings, vt_data, mitre_hits)
-        st.success("Exported!")
+        try:
+            csv_path = export_iocs.export_iocs_to_csv(file_path, hashes, strings, vt_data, mitre_hits)
+            pdf_path = export_iocs.export_iocs_to_pdf(file_path, hashes, strings, vt_data, mitre_hits)
+            st.success("Exported!")
 
-        with open(csv_path, "rb") as f:
-            st.download_button("Download CSV", f.read(), file_name=os.path.basename(csv_path))
+            with open(csv_path, "rb") as f:
+                st.download_button("Download CSV", f.read(), file_name=os.path.basename(csv_path))
 
-        with open(pdf_path, "rb") as f:
-            st.download_button("Download PDF", f.read(), file_name=os.path.basename(pdf_path))
+            with open(pdf_path, "rb") as f:
+                st.download_button("Download PDF", f.read(), file_name=os.path.basename(pdf_path))
+        except Exception as e:
+            st.error(f"Export failed: {e}")
