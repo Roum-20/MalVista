@@ -1,6 +1,6 @@
 streamlit
-fpdf
 pefile
 requests
-python-magic
 vt-py
+fpdf
+python-magic
