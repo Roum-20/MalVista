@@ -1,27 +1,28 @@
 import streamlit as st
 
-VALID_USERS = {
+# Dummy credentials (you can expand to use a database or hashed login)
+USERS = {
     "admin": "admin123",
-    "analyst": "malvista2024"
+    "analyst": "malvista2025"
 }
 
 def login():
-    st.sidebar.subheader("🔐 Login")
+    st.sidebar.header("🔐 Login")
     username = st.sidebar.text_input("Username")
     password = st.sidebar.text_input("Password", type="password")
+    login_button = st.sidebar.button("Login")
 
-    if st.sidebar.button("Login"):
-        if username in VALID_USERS and VALID_USERS[username] == password:
+    if login_button:
+        if USERS.get(username) == password:
             st.session_state["authenticated"] = True
-            st.session_state["user"] = username
-            st.success(f"✅ Welcome, {username}!")
+            st.sidebar.success("✅ Login successful")
+            return True
         else:
-            st.error("❌ Invalid username or password.")
+            st.sidebar.error("❌ Invalid credentials")
 
-def is_authenticated():
     return st.session_state.get("authenticated", False)
 
 def logout():
     if st.sidebar.button("Logout"):
-        st.session_state.clear()
+        st.session_state["authenticated"] = False
         st.experimental_rerun()
