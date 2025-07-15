@@ -1,6 +1,6 @@
 streamlit
+fpdf
 pefile
-vt-py
-fpdf2
+requests
 python-magic
-plotly
+vt-py
