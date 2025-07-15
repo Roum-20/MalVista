@@ -1,6 +1,5 @@
 import streamlit as st
 
-# You can later replace this with a secure database or file
 VALID_USERS = {
     "admin": "admin123",
     "analyst": "malvista2024"
@@ -15,9 +14,14 @@ def login():
         if username in VALID_USERS and VALID_USERS[username] == password:
             st.session_state["authenticated"] = True
             st.session_state["user"] = username
-            st.success(f"Welcome, {username}!")
+            st.success(f"✅ Welcome, {username}!")
         else:
-            st.error("❌ Invalid credentials.")
+            st.error("❌ Invalid username or password.")
 
 def is_authenticated():
     return st.session_state.get("authenticated", False)
+
+def logout():
+    if st.sidebar.button("Logout"):
+        st.session_state.clear()
+        st.experimental_rerun()
