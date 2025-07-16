@@ -6,22 +6,24 @@ USERS = {
 }
 
 def login():
-    st.sidebar.header("🔐 Login")
-    username = st.sidebar.text_input("Username")
-    password = st.sidebar.text_input("Password", type="password")
-    login_button = st.sidebar.button("Login")
+    if "authenticated" not in st.session_state:
+        st.session_state["authenticated"] = False
 
-    if login_button:
-        if USERS.get(username) == password:
-            st.session_state["authenticated"] = True
-            st.sidebar.success("✅ Login successful")
-            return True
-        else:
-            st.sidebar.error("❌ Invalid credentials")
-
-    return st.session_state.get("authenticated", False)
+    if not st.session_state["authenticated"]:
+        with st.sidebar:
+            st.header("🔐 Login")
+            username = st.text_input("Username", key="username_input")
+            password = st.text_input("Password", type="password", key="password_input")
+            if st.button("Login", key="login_button"):
+                if USERS.get(username) == password:
+                    st.session_state["authenticated"] = True
+                    st.success("✅ Login successful")
+                    st.experimental_rerun()
+                else:
+                    st.error("❌ Invalid credentials")
+    return st.session_state["authenticated"]
 
 def logout():
-    if st.sidebar.button("Logout"):
+    if st.sidebar.button("Logout", key="logout_button"):
         st.session_state["authenticated"] = False
         st.experimental_rerun()
