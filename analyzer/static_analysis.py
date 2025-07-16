@@ -1,27 +1,36 @@
-import pefile, hashlib
+import hashlib
+import re
 
-def get_hashes(file_path):
+def perform_static_analysis(file_path):
+    """
+    Perform basic static analysis:
+    - Compute file hashes (MD5, SHA256)
+    - Extract printable strings
+    """
+    hashes = calculate_hashes(file_path)
+    strings = extract_strings(file_path)
+    return hashes, strings
+
+def calculate_hashes(file_path):
+    """
+    Compute MD5 and SHA256 hashes of the file
+    """
+    md5 = hashlib.md5()
+    sha256 = hashlib.sha256()
     with open(file_path, "rb") as f:
-        data = f.read()
+        while chunk := f.read(8192):
+            md5.update(chunk)
+            sha256.update(chunk)
     return {
-        "MD5": hashlib.md5(data).hexdigest(),
-        "SHA1": hashlib.sha1(data).hexdigest(),
-        "SHA256": hashlib.sha256(data).hexdigest(),
+        "md5": md5.hexdigest(),
+        "sha256": sha256.hexdigest()
     }
 
 def extract_strings(file_path):
-    with open(file_path, 'rb') as f:
-        content = f.read()
-    return list(set([s.decode('utf-8', errors='ignore') for s in content.split(b'\x00') if len(s) > 4]))
-
-def get_imports(file_path):
-    try:
-        pe = pefile.PE(file_path)
-        imports = []
-        for entry in pe.DIRECTORY_ENTRY_IMPORT:
-            dll = entry.dll.decode()
-            funcs = [imp.name.decode() if imp.name else "None" for imp in entry.imports]
-            imports.append((dll, funcs))
-        return imports
-    except Exception as e:
-        return [("Error", [str(e)])]
+    """
+    Extract printable ASCII strings (length ≥ 5) from binary file
+    """
+    with open(file_path, "rb") as f:
+        data = f.read()
+    strings = re.findall(rb"[ -~]{5,}", data)
+    return [s.decode(errors="ignore") for s in strings]
