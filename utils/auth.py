@@ -1,6 +1,5 @@
 import streamlit as st
 
-# Dummy credentials (you can expand to use a database or hashed login)
 USERS = {
     "admin": "admin123",
     "analyst": "malvista2025"
