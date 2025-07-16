@@ -3,6 +3,7 @@ import csv
 import re
 from fpdf import FPDF
 
+
 def export_iocs_to_csv(file_path, hashes, strings, vt_data, mitre_hits):
     csv_path = os.path.splitext(file_path)[0] + "_iocs.csv"
     with open(csv_path, "w", newline="", encoding="utf-8") as f:
@@ -13,7 +14,7 @@ def export_iocs_to_csv(file_path, hashes, strings, vt_data, mitre_hits):
         for k, v in hashes.items():
             writer.writerow([f"Hash ({k})", v])
 
-        # MITRE
+        # MITRE ATT&CK
         for tid, desc, tactic in mitre_hits:
             writer.writerow(["MITRE", f"{tid} ({tactic}): {desc}"])
 
@@ -22,12 +23,16 @@ def export_iocs_to_csv(file_path, hashes, strings, vt_data, mitre_hits):
             for engine, result in vt_data.get("results", {}).items():
                 writer.writerow([f"VT-{engine}", result])
 
+        # Extracted Strings
+        for s in strings[:100]:
+            writer.writerow(["String", clean_text(s)])
+
     return csv_path
 
 
 def clean_text(text: str) -> str:
     """Keep only printable ASCII (0x20–0x7E) and common whitespace."""
-    printable = re.sub(r"[^\x20-\x7E\n]+", "", text)
+    printable = re.sub(r"[^\x20-\x7E\n]+", "", str(text))
     return re.sub(r"\s+", " ", printable).strip()
 
 
@@ -36,6 +41,11 @@ def sanitize(text: str) -> str:
     if not isinstance(text, str):
         text = str(text)
     return text.encode("latin-1", "ignore").decode("latin-1")
+
+
+def truncate_string(s, max_len=120):
+    """Truncate long strings to avoid PDF rendering issues."""
+    return s if len(s) <= max_len else s[:max_len] + "..."
 
 
 def export_iocs_to_pdf(file_path, hashes, strings, vt_data, mitre_hits, imports=[], risk_score="N/A"):
@@ -74,11 +84,13 @@ def export_iocs_to_pdf(file_path, hashes, strings, vt_data, mitre_hits, imports=
     write_section("MITRE ATT&CK Mapping:", mitre_lines, font_size=10)
 
     # VirusTotal Results
-    if vt_data:
-        vt_lines = [f"{e}: {r}" for e, r in vt_data.get("results", {}).items()]
-    else:
-        vt_lines = ["No VirusTotal data available."]
+    vt_lines = [f"{e}: {r}" for e, r in vt_data.get("results", {}).items()] if vt_data else ["No VirusTotal data available."]
     write_section("VirusTotal Results:", vt_lines, font_size=10)
+
+    # Extracted Strings (Top 100)
+    if strings:
+        top_strings = [truncate_string(clean_text(s)) for s in strings[:100]]
+        write_section("Extracted Strings (Top 100):", top_strings, font_size=8)
 
     # Risk Score
     write_section("Risk Score:", [str(risk_score)], font_size=11, bold=True)
@@ -87,24 +99,7 @@ def export_iocs_to_pdf(file_path, hashes, strings, vt_data, mitre_hits, imports=
     return pdf_path
 
 
-def export_iocs_to_txt(
-    file_path,
-    hashes,
-    strings,
-    imports,
-    mitre_hits,
-    vt_data=None,
-    risk_score="N/A"
-):
-    """
-    Exports a plaintext IOC report WITHOUT the extracted-strings block.
-    Includes:
-      - File Hashes
-      - PE Imports
-      - MITRE ATT&CK Mapping
-      - VirusTotal Results
-      - Risk Score
-    """
+def export_iocs_to_txt(file_path, hashes, strings, imports, mitre_hits, vt_data=None, risk_score="N/A"):
     txt_path = os.path.splitext(file_path)[0] + "_iocs.txt"
     os.makedirs(os.path.dirname(txt_path), exist_ok=True)
 
@@ -141,6 +136,12 @@ def export_iocs_to_txt(
                 f.write(f"  {engine}: {result}\n")
         else:
             f.write("  No VirusTotal data available.\n")
+        f.write("\n")
+
+        # Extracted Strings
+        f.write("Extracted Strings (Top 100):\n")
+        for s in strings[:100]:
+            f.write(f"  {clean_text(s)}\n")
         f.write("\n")
 
         # Risk Score
