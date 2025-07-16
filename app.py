@@ -70,23 +70,23 @@ else:
     st.write("✅ No techniques detected.")
 
     # VirusTotal Enrichment
-    st.subheader("☣️ VirusTotal Intelligence")
-    vt_data = {}
-    if vt_api_key:
-        vt_data = vt_checker.query_virustotal(hashes["SHA256"], vt_api_key)
-        if isinstance(vt_data, dict):
-            scans = vt_data.get("scans", {})
-            if isinstance(scans, dict) and scans:
-                st.write("🔍 Detections:")
-                for vendor, result in scans.items():
-                    if isinstance(result, dict) and result.get("detected"):
-                        st.write(f"- **{vendor}**: {result.get('result')}")
+   
+st.subheader("🦠 VirusTotal Results")
+
+if vt_data:
+    scans = vt_data.get("scans", {})
+    if scans:
+        st.write("🔍 Detections:")
+        for vendor, result in scans.items():
+            if isinstance(result, dict):  # Ensure it's a dictionary
+                st.write(f"- **{vendor}**: {result.get('result', 'No result')}")
             else:
-                st.write("✅ No detections found.")
-        else:
-            st.warning("⚠️ VirusTotal returned unexpected data or failed.")
+                st.write(f"- **{vendor}**: {result}")
     else:
-        st.info("🔐 No VirusTotal API key provided. Skipping VT checks.")
+        st.info("✅ No detections reported.")
+else:
+    st.warning("⚠️ VirusTotal data not available or key was not provided.")
+
 
     # Risk Scoring
     st.subheader("📊 Risk Scoring")
