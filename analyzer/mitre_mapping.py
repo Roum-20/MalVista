@@ -1,17 +1,47 @@
-tactic_techniques = {
-    "Execution": [("T1059.001", "PowerShell"), ("T1059.003", "Windows Command Shell")],
-    "Persistence": [("T1547.001", "Registry Run Keys")],
-    "Privilege Escalation": [("T1055", "Process Injection")],
-    "Credential Access": [("T1056.001", "Keylogging")],
-    "Discovery": [("T1049", "System Network Configuration")],
-    "Command and Control": [("T1071.001", "Web C2: HTTP")]
+# analyzer/mitre_mapping.py
+
+MITRE_TECHNIQUES = {
+    "DeleteFileW": {
+        "id": "T1070.004",
+        "technique": "Indicator Removal on Host: File Deletion",
+        "description": "Malware often deletes files to hide artifacts or clean up after execution."
+    },
+    "CreateFileW": {
+        "id": "T1055.001",
+        "technique": "Process Injection: Dynamic-link Library Injection",
+        "description": "Malware may write DLLs to disk before injection."
+    },
+    "SetFileAttributesW": {
+        "id": "T1222.001",
+        "technique": "File and Directory Permissions Modification: Windows File Permissions",
+        "description": "Malware modifies file attributes to hide from users or AVs."
+    },
+    "GetProcAddress": {
+        "id": "T1055",
+        "technique": "Process Injection",
+        "description": "Used to locate functions for malicious use."
+    },
+    "LoadLibraryA": {
+        "id": "T1055.001",
+        "technique": "DLL Injection",
+        "description": "Malicious code loading via DLL."
+    },
+    # Add more keywords and techniques here as needed
 }
 
-def map_to_mitre(strings):
-    matches = []
-    for s in strings:
-        for tactic, techniques in tactic_techniques.items():
-            for tid, name in techniques:
-                if name.lower() in s.lower():
-                    matches.append((tid, name, tactic))
-    return list(set(matches))
+
+def map_techniques(extracted_strings):
+    detected_techniques = []
+
+    for s in extracted_strings:
+        for keyword, data in MITRE_TECHNIQUES.items():
+            if keyword in s:
+                technique_info = {
+                    "id": data["id"],
+                    "technique": data["technique"],
+                    "description": data["description"]
+                }
+                if technique_info not in detected_techniques:
+                    detected_techniques.append(technique_info)
+
+    return detected_techniques
