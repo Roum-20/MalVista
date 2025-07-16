@@ -61,12 +61,12 @@ if uploaded_file:
                 for vendor, result in scans.items():
                     if result.get("detected"):
                         st.write(f"- **{vendor}**: {result.get('result')}")
-            else:
-                st.write("✅ No detections found.")
-        else:
-            st.write("⚠️ Could not retrieve data from VirusTotal.")
-    else:
-        st.info("ℹ️ Skipping VirusTotal lookup (no API key provided)")
+                    else:
+                        st.write("✅ No detections found.")
+                    else:
+                        st.write("⚠️ Could not retrieve data from VirusTotal.")
+                    else:
+                        st.info("ℹ️ Skipping VirusTotal lookup (no API key provided)")
 
     # ---------------- Risk Scoring ----------------
     risk_score = scoring.calculate_score(hashes, vt_data, mitre_hits)
