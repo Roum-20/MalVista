@@ -3,7 +3,6 @@ import csv
 import re
 from fpdf import FPDF
 
-
 def export_iocs_to_csv(file_path, hashes, strings, vt_data, mitre_hits):
     csv_path = os.path.splitext(file_path)[0] + "_iocs.csv"
     with open(csv_path, "w", newline="", encoding="utf-8") as f:
@@ -15,30 +14,29 @@ def export_iocs_to_csv(file_path, hashes, strings, vt_data, mitre_hits):
             writer.writerow([f"Hash ({k})", v])
 
         # MITRE ATT&CK
-        for tid, desc, tactic in mitre_hits:
-            writer.writerow(["MITRE", f"{tid} ({tactic}): {desc}"])
+        if mitre_hits:
+            for tid, desc, tactic in mitre_hits:
+                writer.writerow(["MITRE", f"{tid} ({tactic}): {desc}"])
+        else:
+            writer.writerow(["MITRE", "No techniques detected."])
 
         # VirusTotal
         if vt_data:
+            detection_ratio = vt_data.get("detection_ratio", "N/A")
+            writer.writerow(["VT Detection Ratio", detection_ratio])
             for engine, result in vt_data.get("results", {}).items():
                 writer.writerow([f"VT-{engine}", result])
-
-        # Extracted Strings (CSV only)
-        if strings:
-            for s in strings[:100]:
-                writer.writerow(["String", clean_text(s)])
+        else:
+            writer.writerow(["VirusTotal", "No VT data available."])
 
     return csv_path
 
 
 def clean_text(text: str) -> str:
-    """Remove non-printable characters and normalize whitespace."""
-    printable = re.sub(r"[^\x20-\x7E\n]+", "", str(text))
-    return re.sub(r"\s+", " ", printable).strip()
+    return re.sub(r"[^\x20-\x7E\n]+", "", text).strip()
 
 
 def sanitize(text: str) -> str:
-    """Sanitize string to make it compatible with FPDF (Latin-1)."""
     if not isinstance(text, str):
         text = str(text)
     return text.encode("latin-1", "ignore").decode("latin-1")
@@ -76,20 +74,22 @@ def export_iocs_to_pdf(file_path, hashes, strings, vt_data, mitre_hits, imports=
         write_section("PE Imports:", imps, font_size=10)
 
     # MITRE ATT&CK Mapping
-    mitre_lines = [f"{tid} ({tactic}): {desc}" for tid, desc, tactic in mitre_hits] or ["No techniques detected."]
+    if mitre_hits:
+        mitre_lines = [f"{tid} ({tactic}): {desc}" for tid, desc, tactic in mitre_hits]
+    else:
+        mitre_lines = ["No techniques detected."]
     write_section("MITRE ATT&CK Mapping:", mitre_lines, font_size=10)
 
     # VirusTotal Results
     vt_lines = []
     if vt_data:
-        vt_lines.append(f"Detection Ratio: {vt_data.get('detection_ratio', 'N/A')}")
+        detection_ratio = vt_data.get("detection_ratio", "N/A")
+        vt_lines.append(f"Detection Ratio: {detection_ratio}")
         for engine, result in vt_data.get("results", {}).items():
             vt_lines.append(f"{engine}: {result}")
     else:
         vt_lines = ["No VirusTotal data available."]
     write_section("VirusTotal Results:", vt_lines, font_size=10)
-
-    # ❌ Extracted Strings Removed
 
     # Risk Score
     write_section("Risk Score:", [str(risk_score)], font_size=11, bold=True)
@@ -136,12 +136,6 @@ def export_iocs_to_txt(file_path, hashes, strings, imports, mitre_hits, vt_data=
                 f.write(f"  {engine}: {result}\n")
         else:
             f.write("  No VirusTotal data available.\n")
-        f.write("\n")
-
-        # Extracted Strings
-        f.write("Extracted Strings (Top 100):\n")
-        for s in strings[:100]:
-            f.write(f"  {clean_text(s)}\n")
         f.write("\n")
 
         # Risk Score
