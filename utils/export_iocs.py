@@ -24,27 +24,28 @@ def export_iocs_to_csv(file_path, hashes, strings, vt_data, mitre_hits):
                 writer.writerow([f"VT-{engine}", result])
 
         # Extracted Strings
-        for s in strings[:100]:
-            writer.writerow(["String", clean_text(s)])
+        if strings:
+            for s in strings[:100]:
+                writer.writerow(["String", clean_text(s)])
 
     return csv_path
 
 
 def clean_text(text: str) -> str:
-    """Keep only printable ASCII (0x20–0x7E) and common whitespace."""
+    """Remove non-printable characters and normalize whitespace."""
     printable = re.sub(r"[^\x20-\x7E\n]+", "", str(text))
     return re.sub(r"\s+", " ", printable).strip()
 
 
 def sanitize(text: str) -> str:
-    """Drop anything not Latin-1 before sending to FPDF."""
+    """Sanitize string to make it compatible with FPDF (Latin-1)."""
     if not isinstance(text, str):
         text = str(text)
     return text.encode("latin-1", "ignore").decode("latin-1")
 
 
 def truncate_string(s, max_len=120):
-    """Truncate long strings to avoid PDF rendering issues."""
+    s = clean_text(s)
     return s if len(s) <= max_len else s[:max_len] + "..."
 
 
@@ -89,8 +90,8 @@ def export_iocs_to_pdf(file_path, hashes, strings, vt_data, mitre_hits, imports=
 
     # Extracted Strings (Top 100)
     if strings:
-        top_strings = [truncate_string(clean_text(s)) for s in strings[:100]]
-        write_section("Extracted Strings (Top 100):", top_strings, font_size=8)
+        cleaned_strings = [truncate_string(s) for s in strings[:100]]
+        write_section("Extracted Strings (Top 100):", cleaned_strings, font_size=8)
 
     # Risk Score
     write_section("Risk Score:", [str(risk_score)], font_size=11, bold=True)
