@@ -4,16 +4,25 @@ import os
 # Import modules
 from analyzer import static_analysis, mitre_mapping, vt_enrichment
 from utils import export_iocs, file_utils
-from utils.auth import login, logout  # 🔐 Import login & logout functions
+from utils.auth import login, logout
 
 # Set Streamlit config
 st.set_page_config(page_title="MalVista - Malware Analysis Dashboard", layout="wide")
 
-# Run login
+# User Authentication
 if not login():
-    st.stop()  # 🚫 Stop app if not authenticated
+    st.stop()
 
-logout()  # Optional logout button after login
+logout()
+
+# 🔑 VirusTotal API Key input
+st.sidebar.header("🔑 VirusTotal API Key")
+if "vt_api_key" not in st.session_state:
+    st.session_state["vt_api_key"] = ""
+
+vt_input = st.sidebar.text_input("Enter your VirusTotal API Key", type="password", value=st.session_state["vt_api_key"])
+if vt_input:
+    st.session_state["vt_api_key"] = vt_input
 
 # Main Dashboard
 st.title("🔬 MalVista: Malware Analysis & IOC Generator")
@@ -32,16 +41,16 @@ if uploaded_file:
 
         # VirusTotal Scan
         st.subheader("🛡️ VirusTotal Scan")
-        from utils.auth import VIRUSTOTAL_API_KEY  # Use your existing auth for API key
-        if VIRUSTOTAL_API_KEY:
-            vt_data = vt_enrichment.check_virustotal(hashes['sha256'])
+        vt_data = None
+        if st.session_state["vt_api_key"]:
+            vt_data = vt_enrichment.check_virustotal(hashes['sha256'], st.session_state["vt_api_key"])
             if vt_data and "error" not in vt_data:
                 st.write(f"Detection Ratio: `{vt_data['detection_ratio']}`")
                 st.write(f"[🔗 View on VirusTotal]({vt_data['permalink']})")
             else:
                 st.warning(f"VirusTotal error: {vt_data.get('error', 'Unknown error')}")
         else:
-            st.error("VirusTotal API Key is missing in `utils/auth.py`.")
+            st.info("Please provide a VirusTotal API key in the sidebar.")
 
         # MITRE Mapping
         st.subheader("🧠 MITRE ATT&CK Mapping")
