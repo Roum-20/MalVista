@@ -23,7 +23,7 @@ def export_iocs_to_csv(file_path, hashes, strings, vt_data, mitre_hits):
             for engine, result in vt_data.get("results", {}).items():
                 writer.writerow([f"VT-{engine}", result])
 
-        # Extracted Strings
+        # Extracted Strings (CSV only)
         if strings:
             for s in strings[:100]:
                 writer.writerow(["String", clean_text(s)])
@@ -42,11 +42,6 @@ def sanitize(text: str) -> str:
     if not isinstance(text, str):
         text = str(text)
     return text.encode("latin-1", "ignore").decode("latin-1")
-
-
-def truncate_string(s, max_len=120):
-    s = clean_text(s)
-    return s if len(s) <= max_len else s[:max_len] + "..."
 
 
 def export_iocs_to_pdf(file_path, hashes, strings, vt_data, mitre_hits, imports=[], risk_score="N/A"):
@@ -85,13 +80,16 @@ def export_iocs_to_pdf(file_path, hashes, strings, vt_data, mitre_hits, imports=
     write_section("MITRE ATT&CK Mapping:", mitre_lines, font_size=10)
 
     # VirusTotal Results
-    vt_lines = [f"{e}: {r}" for e, r in vt_data.get("results", {}).items()] if vt_data else ["No VirusTotal data available."]
+    vt_lines = []
+    if vt_data:
+        vt_lines.append(f"Detection Ratio: {vt_data.get('detection_ratio', 'N/A')}")
+        for engine, result in vt_data.get("results", {}).items():
+            vt_lines.append(f"{engine}: {result}")
+    else:
+        vt_lines = ["No VirusTotal data available."]
     write_section("VirusTotal Results:", vt_lines, font_size=10)
 
-    # Extracted Strings (Top 100)
-    if strings:
-        cleaned_strings = [truncate_string(s) for s in strings[:100]]
-        write_section("Extracted Strings (Top 100):", cleaned_strings, font_size=8)
+    # ❌ Extracted Strings Removed
 
     # Risk Score
     write_section("Risk Score:", [str(risk_score)], font_size=11, bold=True)
@@ -133,6 +131,7 @@ def export_iocs_to_txt(file_path, hashes, strings, imports, mitre_hits, vt_data=
         # VirusTotal
         f.write("VirusTotal Results:\n")
         if vt_data:
+            f.write(f"  Detection Ratio: {vt_data.get('detection_ratio', 'N/A')}\n")
             for engine, result in vt_data.get("results", {}).items():
                 f.write(f"  {engine}: {result}\n")
         else:
