@@ -1,72 +1,101 @@
 import streamlit as st
-from utils import auth
-from utils import file_utils, export_iocs, scoring
-from analyzer import static_analysis, vt_enrichment, mitre_mapping
+from utils import auth, file_utils, export_iocs, scoring
+from analyzer import static_analysis, mitre_mapping, vt_enrichment
 
-st.set_page_config(page_title="MalVista", layout="wide")
-st.title("🛡️ MalVista - Malware Static Analysis and Threat Intelligence")
-
-# Authenticate
+# -------------------
+# Authentication
+# -------------------
 if not auth.login():
     st.stop()
 auth.logout()
 
-# File Upload
-uploaded_file = st.file_uploader("📂 Upload a PE file", type=["exe", "dll"])
-vt_api_key = st.text_input("🔑 VirusTotal API Key (Optional)", type="password")
+# -------------------
+# UI Layout
+# -------------------
+st.title("🧪 MalVista - Malware Analysis & Threat Mapping")
+uploaded_file = st.file_uploader("Upload a PE file", type=["exe", "dll", "bin"])
+
+vt_api_key = st.text_input("🔑 Optional VirusTotal API Key", type="password")
 
 if uploaded_file:
-    with st.spinner("Analyzing file..."):
-        # Save file
-        file_path = file_utils.save_uploaded_file(uploaded_file)
+    file_path = file_utils.save_uploaded_file(uploaded_file)
+    st.success("✅ File uploaded successfully!")
 
-        # Static Analysis
+    # -------------------
+    # Static Analysis
+    # -------------------
+    st.subheader("🧬 Static Analysis")
+    try:
         hashes, strings = static_analysis.perform_static_analysis(file_path)
-        st.subheader("🧬 Hashes")
-        for htype, hval in hashes.items():
-            st.write(f"**{htype}**: `{hval}`")
+        st.write("🔐 File Hashes:")
+        for algo, h in hashes.items():
+            st.write(f"- {algo}: `{h}`")
 
-        st.subheader("📝 Extracted Strings (Top 100)")
-        for s in strings[:100]:
-            st.text(s)
+        st.write("🔎 Extracted Strings (Top 100):")
+        st.code("\n".join(strings[:100]))
+    except Exception as e:
+        st.error(f"❌ Static analysis failed: {e}")
+        st.stop()
 
-        # VirusTotal
-        vt_data = None
-        if vt_api_key:
-            vt_data = vt_enrichment.query_virustotal(hashes["SHA256"], vt_api_key)
-            if vt_data:
-                st.subheader("🧪 VirusTotal Results")
-                st.write(f"**Detection Ratio**: {vt_data.get('positives', 'N/A')}/{vt_data.get('total', 'N/A')}")
-                scans = vt_data.get("scans", {})
-                if scans:
-                    for vendor, result in scans.items():
-                        st.write(f"- **{vendor}**: {result.get('result')}")
-                else:
-                    st.write("No individual vendor results available.")
-            else:
-                st.warning("⚠️ No VirusTotal data found or invalid API key.")
-        else:
-            st.info("🔐 Provide API key to retrieve VirusTotal results.")
-
-        # MITRE Mapping
+    # -------------------
+    # MITRE Mapping
+    # -------------------
+    st.subheader("🎯 MITRE ATT&CK Techniques")
+    try:
         mitre_hits = mitre_mapping.map_techniques(strings)
-        st.subheader("🎯 MITRE ATT&CK Techniques")
         if mitre_hits:
-            for tech in mitre_hits:
-                st.write(f"- **{tech['technique']}** ({tech['id']}): {tech['description']}")
+            for hit in mitre_hits:
+                st.write(f"- {hit}")
         else:
-            st.write("✅ No techniques detected.")
+            st.info("✅ No techniques detected.")
+    except Exception as e:
+        st.error(f"❌ MITRE mapping failed: {e}")
+        mitre_hits = []
 
-        # Scoring
+    # -------------------
+    # VirusTotal Enrichment
+    # -------------------
+    st.subheader("🧪 VirusTotal Results")
+    vt_data = None
+    if vt_api_key and hashes.get("SHA256"):
+        try:
+            vt_data = vt_enrichment.query_virustotal(hashes["SHA256"], vt_api_key)
+        except Exception as e:
+            st.warning(f"⚠️ VirusTotal lookup failed: {e}")
+
+    if vt_data:
+        scans = vt_data.get("last_analysis_results", {})
+        positives = sum(1 for result in scans.values() if result.get("category") == "malicious")
+        total = len(scans)
+        st.write(f"Detection Ratio: {positives}/{total}")
+        st.write("🔍 Detections:")
+        for vendor, result in scans.items():
+            if result.get("category") == "malicious":
+                st.write(f"- **{vendor}**: {result.get('result')}")
+    else:
+        st.info("ℹ️ VirusTotal data not available or API key not provided.")
+
+    # -------------------
+    # Scoring
+    # -------------------
+    st.subheader("🛡️ Risk Score")
+    try:
         risk_score = scoring.calculate_score(hashes, vt_data, mitre_hits)
-        st.subheader(f"🔥 Risk Score: {risk_score}/10")
+        st.metric("Overall Risk Score", f"{risk_score} / 100")
+    except Exception as e:
+        st.error(f"❌ Scoring failed: {e}")
 
-        # Export
+    # -------------------
+    # Export IOCs
+    # -------------------
+    st.subheader("📤 Export IOCs")
+    try:
         csv_path = export_iocs.export_iocs_to_csv(file_path, hashes, strings, vt_data, mitre_hits)
-        pdf_path = export_iocs.export_iocs_to_pdf(file_path, hashes, strings, vt_data, mitre_hits)
-
-        st.success("✅ IOC Exports Ready")
         with open(csv_path, "rb") as f:
             st.download_button("⬇️ Download CSV", f, file_name="iocs.csv")
+
+        pdf_path = export_iocs.export_iocs_to_pdf(file_path, hashes, strings, vt_data, mitre_hits)
         with open(pdf_path, "rb") as f:
-            st.download_button("⬇️ Download PDF", f, file_name="report.pdf")
+            st.download_button("⬇️ Download PDF Report", f, file_name="report.pdf")
+    except Exception as e:
+        st.error(f"❌ Export failed: {e}")
