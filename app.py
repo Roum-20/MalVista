@@ -1,77 +1,76 @@
 import os
 import streamlit as st
-from analyzer import static_analysis, vt_enrichment, mitre_mapping
-from utils import file_utils, scoring, export_iocs, auth
+from modules import pe_parser, signature_scanner, mitre_mapper, vt_checker, export_iocs
 
-# Set Streamlit layout
-st.set_page_config(page_title="MalScanX", layout="wide")
+st.set_page_config(page_title="MalVista", layout="wide")
 
-# 🔐 Authentication
-if not auth.login():
-    st.stop()
-auth.logout()
+def analyze_file(file):
+    # Save uploaded file
+    file_path = os.path.join("uploads", file.name)
+    os.makedirs("uploads", exist_ok=True)
+    with open(file_path, "wb") as f:
+        f.write(file.read())
 
-# App Title
-st.title("🧪 MalVista - Malware Analysis Dashboard")
+    # Perform analysis
+    hashes = pe_parser.get_hashes(file_path)
+    imports = pe_parser.get_imports(file_path)
+    vt_data = vt_checker.check_virustotal(hashes.get("md5", ""))
+    matched_rules, mitre_hits, risk_score = signature_scanner.analyze_file(file_path)
 
-# File upload
-uploaded_file = st.file_uploader("Upload a PE file (.exe, .dll)", type=["exe", "dll"])
-api_key = st.text_input("VirusTotal API Key (optional)", type="password")
+    # Display results
+    st.subheader("Analysis Results")
+    st.markdown(f"**File:** `{file.name}`")
+    
+    with st.expander("File Hashes"):
+        for k, v in hashes.items():
+            st.code(f"{k}: {v}", language="text")
 
-if uploaded_file:
-    st.success(f"Uploaded: {uploaded_file.name}")
-    file_path = file_utils.save_uploaded_file(uploaded_file)
+    with st.expander("Imports"):
+        for entry in imports:
+            if isinstance(entry, tuple):
+                dll, funcs = entry
+                st.text(f"{dll}: {', '.join(funcs)}")
+            else:
+                st.text(str(entry))
 
-    # Static Analysis
-    hashes = static_analysis.get_hashes(file_path)
-    strings = static_analysis.extract_strings(file_path)
-    imports = static_analysis.get_imports(file_path)
-    mitre_hits = mitre_mapping.map_to_mitre(strings)
-
-    # Display Hashes
-    st.subheader("📄 File Hashes")
-    st.json(hashes)
-
-    # Display Imports
-    st.subheader("🔍 PE Imports")
-    for entry in imports:
-        if isinstance(entry, tuple):
-            dll, funcs = entry
-            st.markdown(f"**{dll}**: {', '.join(funcs[:5])}...")
+    with st.expander("YARA Rule Matches"):
+        if matched_rules:
+            for rule in matched_rules:
+                st.success(rule)
         else:
-            st.warning(f"Import parsing error: {entry}")
+            st.warning("No matches found.")
 
-    # MITRE Mapping
-    st.subheader("🎯 MITRE ATT&CK Mapping")
-    if mitre_hits:
-        for tid, desc, tactic in mitre_hits:
-            st.markdown(f"- **{tid}** ({tactic}): {desc}")
-    else:
-        st.info("No MITRE techniques detected from strings.")
+    with st.expander("MITRE ATT&CK Techniques"):
+        if mitre_hits:
+            for tid, desc, tactic in mitre_hits:
+                st.info(f"{tid} ({tactic}): {desc}")
+        else:
+            st.warning("No techniques detected.")
 
-    # VirusTotal
-    vt_data = None
-    if api_key:
-        with st.spinner("Querying VirusTotal..."):
-            vt_data = vt_enrichment.enrich_virustotal(file_path, api_key)
-            if vt_data:
-                st.subheader("🦠 VirusTotal Results")
-                st.json(vt_data)
+    with st.expander("VirusTotal Results"):
+        if vt_data:
+            st.text(f"Detection Ratio: {vt_data.get('detection_ratio', 'N/A')}")
+            for engine, result in vt_data.get("results", {}).items():
+                st.text(f"{engine}: {result}")
+        else:
+            st.warning("No VirusTotal data found.")
 
-    # Risk Score
-    st.subheader("⚠️ Risk Assessment")
-    risk = scoring.score_sample(imports, strings, vt_data)
-    st.write(risk)
+    st.metric("Risk Score", str(risk_score))
 
     # Export
-    st.subheader("📤 Export IOCs")
-    if st.button("Export to CSV & PDF"):
-        csv_path = export_iocs.export_iocs_to_csv(file_path, hashes, strings, vt_data, mitre_hits)
-        pdf_path = export_iocs.export_iocs_to_pdf(file_path, hashes, strings, vt_data, mitre_hits, imports=imports, risk_score=risk)
-        st.success("✅ Exported successfully!")
+    with st.expander("📄 Export Reports"):
+        csv_path = export_iocs.export_iocs_to_csv(file_path, hashes, vt_data, mitre_hits)
+        pdf_path = export_iocs.export_iocs_to_pdf(file_path, hashes, vt_data, mitre_hits, imports, risk_score)
+        txt_path = export_iocs.export_iocs_to_txt(file_path, hashes, imports, mitre_hits, vt_data, risk_score)
 
-        with open(csv_path, "rb") as f:
-            st.download_button("⬇️ Download CSV", f.read(), file_name=os.path.basename(csv_path))
+        st.download_button("Download CSV", open(csv_path, "rb"), file_name=os.path.basename(csv_path))
+        st.download_button("Download PDF", open(pdf_path, "rb"), file_name=os.path.basename(pdf_path))
+        st.download_button("Download TXT", open(txt_path, "rb"), file_name=os.path.basename(txt_path))
 
-        with open(pdf_path, "rb") as f:
-            st.download_button("⬇️ Download PDF", f.read(), file_name=os.path.basename(pdf_path))
+# Streamlit UI
+st.title("🧪 MalVista - Malware Static Analyzer")
+
+uploaded_file = st.file_uploader("Upload a PE file (exe/dll)", type=["exe", "dll"])
+
+if uploaded_file:
+    analyze_file(uploaded_file)
