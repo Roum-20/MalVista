@@ -4,3 +4,4 @@ requests
 vt-py
 fpdf
 python-magic
+reportlab
