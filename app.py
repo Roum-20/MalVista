@@ -1,54 +1,58 @@
 import streamlit as st
-import os
-
 from modules import (
-    pe_parser,
-    signature_scanner,
-    mitre_mapper,
-    vt_checker,
-    export_iocs,
-    static_analysis,
-    scoring,
+    pe_parser, signature_scanner, mitre_mapper,
+    vt_checker, export_iocs, static_analysis, scoring
 )
 from utils import auth
 
-# Set page config
 st.set_page_config(page_title="MalVista - Malware Analysis", layout="wide")
 
-# Authenticate user
+# 🟢 Authenticate user
 if not auth.login():
     st.stop()
+auth.logout()
 
-st.title("🧠 MalVista - Malware Analysis & Threat Scoring")
+st.title("🧠 MalVista: Automated Malware Analysis Platform")
 
-# VirusTotal API key input
+# 🔑 VirusTotal API Key
 vt_api_key = st.sidebar.text_input("🔑 VirusTotal API Key", type="password")
 
-# File uploader
-file_path = None
-uploaded_file = st.file_uploader("📂 Upload a PE file (e.g., .exe)", type=["exe", "dll"])
-
+# 📁 File Upload
+uploaded_file = st.file_uploader("Upload a PE file for analysis", type=["exe", "dll"])
 if uploaded_file:
-    with open(f"uploads/{uploaded_file.name}", "wb") as f:
-        f.write(uploaded_file.getbuffer())
-    file_path = f"uploads/{uploaded_file.name]"
-    st.success("✅ File uploaded successfully!")
+    with open(f"temp/{uploaded_file.name}", "wb") as f:
+        f.write(uploaded_file.read())
 
-# Analyze when file and API key are provided
-if file_path and vt_api_key:
-    st.subheader("📊 Static Analysis")
+    file_path = f"temp/{uploaded_file.name}"
 
+    # 🧬 Static Analysis
+    st.subheader("🧬 Static Analysis")
     hashes, strings = static_analysis.perform_static_analysis(file_path)
-    st.write("🔢 File Hashes:")
-    st.json(hashes)
+    st.write("🔢 Hashes:", hashes)
+    st.text_area("📜 Extracted Strings (Top 100)", "\n".join(strings[:100]), height=300)
 
-    st.write("🧵 Extracted Strings (Top 100):")
-    for s in strings[:100]:
-        st.text(s)
+    # 🧠 Signature-based Detection
+    st.subheader("🧠 Signature Scanner")
+    sig_hits = signature_scanner.scan_with_signatures(file_path)
+    if sig_hits:
+        st.error(f"⚠️ Signatures matched: {sig_hits}")
+    else:
+        st.success("✅ No known malicious signatures detected.")
 
-    # VT check
+    # 🎯 MITRE Mapping
+    st.subheader("🎯 MITRE ATT&CK Techniques")
+    mitre_hits = mitre_mapper.map_techniques(file_path)
+    if mitre_hits:
+        for hit in mitre_hits:
+            st.write(f"🔸 {hit}")
+    else:
+        st.info("No techniques detected.")
+
+    # 🛡️ VirusTotal Enrichment
     st.subheader("🛡️ VirusTotal Enrichment")
-    vt_data = vt_checker.query_virustotal(hashes["SHA256"], vt_api_key)
+    vt_data = None
+    if vt_api_key:
+        vt_data = vt_checker.query_virustotal(hashes["SHA256"], vt_api_key)
 
     if vt_data:
         positives = vt_data.get("positives", 0)
@@ -64,30 +68,22 @@ if file_path and vt_api_key:
             st.write("🔍 Detections:")
             st.json(detected)
         else:
-            st.info("✅ No detections found by vendors.")
+            st.success("✅ No detections found by vendors.")
     else:
         st.warning("⚠️ Could not fetch data from VirusTotal.")
 
-    # Signature scan
-    st.subheader("🔎 Signature-Based Detection")
-    signatures = signature_scanner.scan_signatures(strings)
-    st.write(signatures if signatures else "No signature matches.")
-
-    # MITRE Mapping
-    st.subheader("🎯 MITRE ATT&CK Techniques")
-    mitre_hits = mitre_mapper.map_to_mitre(strings)
-    st.write(mitre_hits if mitre_hits else "No techniques detected.")
-
-    # Scoring
-    st.subheader("📈 Risk Scoring")
+    # 📊 Risk Score
+    st.subheader("📊 Risk Scoring")
     risk_score = scoring.calculate_score(hashes, vt_data, mitre_hits)
-    st.metric("Overall Risk Score", f"{risk_score}/100")
+    st.metric("Final Risk Score", f"{risk_score}/100")
 
-    # IOC Export (CSV)
-    st.subheader("📤 Export IOCs")
-    csv_path = export_iocs.export_iocs_to_csv(file_path, hashes, strings, vt_data, mitre_hits)
-    with open(csv_path, "rb") as f:
-        st.download_button("⬇️ Download CSV Report", f, file_name=os.path.basename(csv_path))
-
-# Logout button
-auth.logout()
+    # 📁 Export
+    st.subheader("📤 Export")
+    if st.button("📄 Export to PDF & CSV"):
+        csv_path = export_iocs.export_iocs_to_csv(file_path, hashes, strings, vt_data, mitre_hits)
+        pdf_path = export_iocs.export_to_pdf(
+            file_path, hashes, strings, vt_data, mitre_hits, risk_score
+        )
+        st.success("📁 Reports generated successfully.")
+        st.download_button("⬇️ Download PDF", open(pdf_path, "rb"), file_name="MalVista_Report.pdf")
+        st.download_button("⬇️ Download CSV", open(csv_path, "rb"), file_name="MalVista_IOCs.csv")
