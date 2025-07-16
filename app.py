@@ -53,15 +53,21 @@ if uploaded_file:
     else:
         st.success("✅ No signature-based malware detected.")
 
-    # MITRE Mapping
-    st.subheader("🎯 MITRE ATT&CK Techniques")
+    # 🎯 MITRE Mapping
+st.subheader("🎯 MITRE ATT&CK Techniques")
+
+try:
     mitre_hits = mitre_mapper.map_to_mitre(strings)
-    if mitre_hits:
-        st.write("Mapped Techniques:")
-        for technique in mitre_hits:
-            st.write(f"- {technique}")
-    else:
-        st.write("✅ No techniques detected.")
+except Exception as e:
+    st.error(f"❌ MITRE mapping failed: {str(e)}")
+    mitre_hits = []
+
+if mitre_hits and isinstance(mitre_hits, list):
+    st.write("Mapped Techniques:")
+    for technique in mitre_hits:
+        st.write(f"- {technique}")
+else:
+    st.write("✅ No techniques detected.")
 
     # VirusTotal Enrichment
     st.subheader("☣️ VirusTotal Intelligence")
